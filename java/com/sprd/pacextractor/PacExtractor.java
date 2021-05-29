@@ -8,6 +8,11 @@
  * You can do whatever you want with this file.
  */
 
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------
+05.04.2021  w5277c      The variable dwSize overflows if larger than 4Gb
+06.04.2021  w5277c      The variable partitionSize overflows if larger than 4Gb also
+--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 package com.sprd.pacextractor;
 
 import java.io.File;
@@ -34,14 +39,26 @@ public class PacExtractor {
 
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.err.println("Usage: PacExtractor [-d] [-c] firmware.pac outdir");
+            System.err.println("Usage: PacExtractor [-d] [-c] [-o super.img] firmware.pac outdir");
             System.err.println("\t -d\t enable debug output");
             System.err.println("\t -c\t compute and verify CRC16");
+            System.err.println("\t -o\t check overflow(<1G) for partition FileName");
             System.exit(2);
         }
+        String opf = null;
         boolean checkCRC16 = false;
-        if (args[0].equals("-d") || args[1].equals("-d")) debug = true;
-        if (args[1].equals("-c") || args[0].equals("-c")) checkCRC16 = true;
+        for(int args_pos = 0x00; args_pos < args.length; args_pos++) {
+           if(args[args_pos].equals("-d")) {
+              debug = true;
+           }
+           else if(args[args_pos].equals("-c")) {
+            checkCRC16 = true;
+           }
+           else if(args[args_pos].equals("-o")) {
+              opf = args[args_pos+0x01];
+              args_pos++;
+           }
+        }
 
         try {
             File inFile = new File(args[args.length - 2]);
@@ -56,8 +73,12 @@ public class PacExtractor {
 
             in = new RandomAccessFile(inFile, "r");
             PacHeader pacHeader = new PacHeader();
-            if (unsigned(pacHeader.dwSize) != inFile.length())
-                exit("Bin packet's size is not correct");
+            if (unsigned(pacHeader.dwSize) != inFile.length()) {
+               if(inFile.length() > 0x100000000l && unsigned(pacHeader.dwSize) == (inFile.length() - 0x100000000l))
+                  System.out.println("\nWarning! Bin packet's size is not correct\n");
+               else
+                  exit("Bin packet's size is not correct");
+            }
             else if (!getString(pacHeader.szVersion).equals("BP_R1.0.0"))
                 exit("Unsupported PAC version");
 
@@ -77,17 +98,24 @@ public class PacExtractor {
 
             System.out.println("\nExtracting...\n");
             String fiveSpaces = "     ";
+            long overflow_offset = 0x00;
             byte[] buffer = new byte[4096];
             for (i = 0; i < partHeaders.length; i++) {
                 if (partHeaders[i].partitionSize == 0)
                     continue;
-                in.seek(unsigned(partHeaders[i].partitionAddrInPac));
+                long tmp = partHeaders[i].partitionAddrInPac;
+                //DUCT TAPE, works only with sequential arrangement of parttitions
+                in.seek(0 != overflow_offset && overflow_offset < tmp ? tmp + 0x0100000000l : tmp);
                 String outfile = getString(partHeaders[i].fileName);
                 System.out.print(fiveSpaces + outfile);
 
                 FileOutputStream fos = new FileOutputStream(outdirS + outfile);
                 int read;
-                long len = unsigned(partHeaders[i].partitionSize);
+                long len = partHeaders[i].partitionSize;
+                if(null != opf && opf.equals(getString(partHeaders[i].fileName)) && len < 1 * 1024 * 1024 * 1024l) {
+                  len += 0x0100000000l;
+                  overflow_offset = partHeaders[i].partitionAddrInPac;
+                }
                 long tsize = len;
                 while ((read = in.read(buffer, 0, len < buffer.length ? (int) len : buffer.length)) > 0) {
                     fos.write(buffer, 0, read);
@@ -250,13 +278,13 @@ public class PacExtractor {
         char[] partitionName = new char[256]; // file ID,such as FDL,Fdl2,NV and etc.
         char[] fileName = new char[256];      // file name in the packet bin file. It only stores file name
         char[] szFileName = new char[256];    // Reserved now
-        int partitionSize;                    // file size
+        long partitionSize;                   // file size
         int nFileFlag;                        // if "0", means that it need not a file, and
                                               // it is only an operation or a list of operations, such as file ID is "FLASH"
                                               // if "1", means that it need a file
         int nCheckFlag;                       // if "1", this file must be downloaded;
                                               // if "0", this file can not be downloaded;
-        int partitionAddrInPac;               // the offset from the packet file header to this file data
+        long partitionAddrInPac;              // the offset from the packet file header to this file data
         int dwCanOmitFlag;                    // if "1", this file can not be downloaded and not check it as "All files"
                                               // in download and spupgrade tool.
         int dwAddrNum;
@@ -268,10 +296,10 @@ public class PacExtractor {
             readString(partitionName);
             readString(fileName);
             readString(szFileName);
-            partitionSize = readInt();
+            partitionSize = unsigned(readInt());
             nFileFlag = readInt();
             nCheckFlag = readInt();
-            partitionAddrInPac = readInt();
+            partitionAddrInPac = unsigned(readInt());
             dwCanOmitFlag = readInt();
             dwAddrNum = readInt();
             readInt(dwAddr);
@@ -283,10 +311,10 @@ public class PacExtractor {
               "Size"        + "\t\t= " + unsigned(length)             + "\n" +
               "FileID"      + "\t\t= " + getString(partitionName)     + "\n" +
               "FileName"    +   "\t= " + getString(fileName)          + "\n" +
-              "FileSize"    +   "\t= " + unsigned(partitionSize)      + "\n" +
+              "FileSize"    +   "\t= " + partitionSize                + "\n" +
               "FileFlag"    +   "\t= " + nFileFlag                    + "\n" +
               "CheckFlag"   +   "\t= " + nCheckFlag                   + "\n" +
-              "DataOffset"  +   "\t= " + unsigned(partitionAddrInPac) + "\n" +
+              "DataOffset"  +   "\t= " + partitionAddrInPac           + "\n" +
               "CanOmitFlag" +   "\t= " + dwCanOmitFlag                + "\n"
             );
         }
