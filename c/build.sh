@@ -8,4 +8,4 @@ esac
 cdir="${cdir%/*}"
 
 cd "$cdir"
-gcc -g -Wall -O3 -o pacextractor pacextractor.c crc16.c
+gcc -g -Wall -O3 -D_FILE_OFFSET_BITS=64 -o pacextractor pacextractor.c crc16.c

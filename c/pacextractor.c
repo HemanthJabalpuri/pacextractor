@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     }
 
     fseek(filestream, 0, SEEK_END);
-    uint64_t firmwareSize = ftell(filestream);
+    uint64_t firmwareSize = ftello(filestream);
     if (firmwareSize < sizeof(PacHeader)) {
         fprintf(stderr, "file %s is not a PAC firmware\n", file);
         exit(EXIT_FAILURE);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "\nPartition image extraction error\n");
                 exit(EXIT_FAILURE);
             }
-            printf("\r%lu%%", 100 - ((100 * dataSizeLeft) / tsize));
+            printf("\r%llu%%", 100 - ((100 * dataSizeLeft) / tsize));
         }
         printf("\r%s%s\n", partFile, fiveSpaces);
         fclose(newstream);
@@ -164,7 +164,7 @@ void checkCRC16(PacHeader* pacHeader, FILE* filestream) {
         }
         dataSizeLeft -= copyLength;
         crc2 = crc16(crc2, buffer, copyLength);
-        printf("\r%lu%%", 100 - ((100 * dataSizeLeft) / tsize));
+        printf("\r%llu%%", 100 - ((100 * dataSizeLeft) / tsize));
     }
     printf("\r%s\n", fiveSpaces);
 
