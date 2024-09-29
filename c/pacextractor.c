@@ -3,6 +3,14 @@
 #include <stdlib.h> // exit, free, malloc, EXIT_FAILURE, EXIT_SUCCESS
 #include <string.h> // strcmp
 
+#ifdef _WIN32
+    #include <direct.h>
+    #define MAKE_DIR(dirName) _mkdir(dirName)
+#else
+    #include <sys/stat.h>
+    #define MAKE_DIR(dirName) mkdir(dirName, 0777)
+#endif
+
 #include "crc16.h"
 #include "pacextractor.h"
 
@@ -26,18 +34,25 @@ void printPacHeaderInfo(PacHeader* pacHeader);
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: pacextractor [-d] [-c] firmware.pac\n");
+        fprintf(stderr, "Usage: pacextractor [-d] [-c] firmware.pac [outdir]\n");
         fprintf(stderr, "\t -d\t enable debug output\n");
         fprintf(stderr, "\t -c\t compute and verify CRC16\n");
         exit(EXIT_FAILURE);
     }
-    char* file = argv[argc - 1];
+    char* file = NULL;
+    char* outdir = NULL;
     _Bool crc16check = 0;
 
-    if ((argc > 2) && (strcmp(argv[1], "-d") == 0 || strcmp(argv[2], "-d") == 0))
-        debug = 1;
-    if ((argc > 2) && (strcmp(argv[2], "-c") == 0 || strcmp(argv[1], "-c") == 0))
-        crc16check = 1;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-d") == 0)
+            debug = 1;
+        else if (strcmp(argv[i], "-c") == 0)
+            crc16check = 1;
+        else if (file == NULL)
+            file = argv[i];
+        else if (outdir == NULL)
+            outdir = argv[i];
+    }
 
     FILE* filestream = fopen(file, "rb");
     if (filestream == NULL) {
@@ -89,6 +104,15 @@ int main(int argc, char* argv[]) {
     }
 
     printf("\nExtracting...\n\n");
+
+    if (outdir == NULL)
+        outdir = "output";
+
+    if (MAKE_DIR(outdir) != 0) {
+        fprintf(stderr, "Error creating directory\n");
+        exit(EXIT_FAILURE);
+    }
+
     char filebuf[BUFFSIZE];
     for (i = 0; i < pacHeader.partitionCount; i++) {
         if (partHeaders[i]->loPartitionSize == 0 && partHeaders[i]->hiPartitionSize == 0) {
@@ -97,8 +121,10 @@ int main(int argc, char* argv[]) {
         }
         fseeko(filestream, partHeaders[i]->hiDataOffset * 0x100000000UL + partHeaders[i]->loDataOffset, SEEK_SET);
         char* partFile = getString(partHeaders[i]->fileName);
-        remove(partFile);
-        FILE* newstream = fopen(partFile, "wb");
+        char filepath[256];
+        snprintf(filepath, sizeof(filepath), "%s/%s", outdir, partFile);
+        remove(filepath);
+        FILE* newstream = fopen(filepath, "wb");
         printf("%s%s", fiveSpaces, partFile);
         uint64_t dataSizeLeft = partHeaders[i]->hiPartitionSize * 0x100000000UL + partHeaders[i]->loPartitionSize;
         uint64_t tsize = dataSizeLeft;
