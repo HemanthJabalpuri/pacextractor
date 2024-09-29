@@ -21,6 +21,7 @@ public class PacExtractor {
     public static final short SIZE_OF_PARTITION_HEADER = 2580; // bytes
     public static final long PAC_MAGIC = 0xfffafffaL;
     public static final String fiveSpaces = "     ";
+    public static final int bufsize = 1024 * 1024;
 
     private static RandomAccessFile in;
     private static boolean debug;
@@ -77,7 +78,7 @@ public class PacExtractor {
             }
 
             System.out.println("\nExtracting...\n");
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[bufsize];
             for (i = 0; i < partHeaders.length; i++) {
                 if (partHeaders[i].partitionSize == 0)
                     continue;
@@ -112,26 +113,28 @@ public class PacExtractor {
     }
 
     public static void checkCRC16(PacHeader pacHeader) throws IOException {
+        if (unsigned(pacHeader.dwMagic) != PAC_MAGIC)
+            return;
+
         CRC16 crc16 = new CRC16();
         int read;
-        if (unsigned(pacHeader.dwMagic) == PAC_MAGIC) {
-            System.out.println("Checking CRC Part 1");
-            in.seek(0);
-            byte[] buffer = new byte[SIZE_OF_PAC_HEADER - 4];
-            read = in.read(buffer);
-            for (int i = 0; i < read; ++i)
-                crc16.update(buffer[i]);
-            int crc1InPac = unsigned(pacHeader.wCRC1);
-            if (crc16.getValue() != crc1InPac) {
-                if (debug) System.out.println("Computed CRC1 = " + crc16.getValue() + ", CRC1 in PAC = " + crc1InPac);
-                exit("CRC Check failed for CRC1\n");
-            }
+
+        System.out.println("Checking CRC Part 1");
+        in.seek(0);
+        byte[] buffer = new byte[SIZE_OF_PAC_HEADER - 4];
+        read = in.read(buffer);
+        for (int i = 0; i < read; ++i)
+            crc16.update(buffer[i]);
+        int crc1InPac = unsigned(pacHeader.wCRC1);
+        if (crc16.getValue() != crc1InPac) {
+            if (debug) System.out.println("Computed CRC1 = " + crc16.getValue() + ", CRC1 in PAC = " + crc1InPac);
+            exit("CRC Check failed for CRC1\n");
         }
 
         System.out.println("Checking CRC Part 2");
         crc16.reset();
         int crc2InPac = unsigned(pacHeader.wCRC2);
-        byte[] buffer2 = new byte[64 * 1024];
+        byte[] buffer2 = new byte[bufsize];
         long len = pacHeader.dwSize - SIZE_OF_PAC_HEADER;
         long tsize = len;
         in.seek(SIZE_OF_PAC_HEADER);

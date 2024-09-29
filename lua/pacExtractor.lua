@@ -19,17 +19,22 @@ function abort(msg)
 end
 
 if #arg < 1 then
-  abort("Usage: pacExtractor.lua [-d] [-c] pacfile\n" .. "\t-d\tenable dubug output\n" .. "\t-c\tcheck and verify crc")
+  abort("Usage: pacExtractor.lua [-d] [-c] pacfile [outdir]\n" .. "\t-d\tenable debug output\n" .. "\t-c\tcheck and verify crc")
 end
 
 debug, checkCRC = false, false
-if arg[1] == "-d" or arg[2] == "-d" then
-  debug = true
+pacf, outdir = nil, nil
+bufsize = 1024 * 1024
+
+local i = 1
+while i <= #arg do
+  if arg[i] == "-d" then debug = true
+  elseif arg[i] == "-c" then checkCRC = true
+  elseif not pacf then pacf = arg[i]
+  elseif not outdir then outdir = arg[i]
+  end
+  i = i + 1
 end
-if arg[1] == "-c" or arg[2] == "-c" then
-  checkCRC = true
-end
-pacf = arg[#arg]
 
 f = io.open(pacf, "rb")
 data = f:read(2124)
@@ -154,17 +159,17 @@ function checkCRCf()
   end
   print("Checking CRC2")
   f:seek("set", 2124)
-  local bufsize = 64 * 1024
+  local buf_size = bufsize
   local tempsize = fsize - 2124
   local tsize = tempsize
   local crc2val = 0
   while tempsize > 0 do
-    if tempsize < bufsize then
-      bufsize = tempsize
+    if tempsize < buf_size then
+      buf_size = tempsize
     end
     -- there are no -= like operators in lua
-    tempsize = tempsize - bufsize
-    crc2val = crc16(f:read(bufsize), crc2val)
+    tempsize = tempsize - buf_size
+    crc2val = crc16(f:read(buf_size), crc2val)
     prg = math.floor(100 - ((100 * tempsize) / tsize))
     io.write("\r", prg, "%")
     -- io.flush()
@@ -186,9 +191,10 @@ function extractFile(fHdr)
   end
   io.write(fiveSpaces .. fHdr.fileName)
   f:seek("set", fHdr.hiDataOffset * 0x100000000 + fHdr.loDataOffset)
-  size = 4096
+  size = bufsize
   tsize = tempsize
-  of = io.open(fHdr.fileName, "wb")
+  filepath = outdir .. "/" .. fHdr.fileName
+  of = io.open(filepath, "wb")
   while tempsize > 0 do
     if tempsize < size then
       size = tempsize
@@ -262,6 +268,12 @@ end
 
 
 print("\nExtracting...\n")
+
+if not outdir then outdir = "outdir" end
+if not os.execute("mkdir " .. outdir) then
+  abort("Can't create directory " .. outdir)
+end
+
 for i = 1, pHdr.partitionCount do
   extractFile(fHdrs[i])
 end

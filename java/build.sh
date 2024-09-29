@@ -10,7 +10,7 @@ cdir="${cdir%/*}"
 cd "$cdir"
 mkdir out
 
-javac -source 1.7 -target 1.7 -sourcepath . -d out com/sprd/pacextractor/PacExtractor.java
+javac -sourcepath . -d out com/sprd/pacextractor/PacExtractor.java
 cp -r com ../c ../python ../README.md out/
 jar cfm PacExtractor-build.jar pacextractor.mf -C out/ .
 

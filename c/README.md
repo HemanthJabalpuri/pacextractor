@@ -1,8 +1,15 @@
 ### Requirements:
-GCC or Clang or TCC
+
+GCC(MinGW-w64 is suggested) or Clang
 
 ### Build:
-`bash build.sh` or `tcc pacextractor.c crc16.c`
+
+`bash build.sh`
 
 ### Usage:
-`./pacextractor pacfile`  
+
+```
+pacextractor [-d] [-c] firmware.pac [outdir]
+         -d      enable debug output
+         -c      compute and verify CRC16
+```

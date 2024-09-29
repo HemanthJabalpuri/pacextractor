@@ -20,6 +20,7 @@ FILE_HEADER_FMT = 'I 512s 512s 504s I I I I I I I I 5I 996s'
 
 PAC_MAGIC = '0xfffafffa'
 fiveSpaces = ' ' * 5
+bufsize = 1024 * 1024
 
 PAC_HEADER = {
     'szVersion': '',            # packet struct version
@@ -129,28 +130,31 @@ def parsePacHeader(f, pacfile, debug):
 
 
 def verifyCRC16(f, ph, debug):
+    if hex(ph['dwMagic']) != PAC_MAGIC:
+        return
+
     import crc16
-    if hex(ph['dwMagic']) == PAC_MAGIC:
-        print('Checking CRC Part 1')
-        f.seek(0)
-        crcbuf = f.read(struct.calcsize(PAC_HEADER_FMT) - 4)
-        crc1val = crc16.crc16(crcbuf)
-        if crc1val != ph['wCRC1']:
-            if debug:
-                print(f'Computed CRC1 = {crc1val}, CRC1 in PAC = {ph["wCRC1"]}')
-            abort('CRC Check failed for CRC1\n')
+
+    print('Checking CRC Part 1')
+    f.seek(0)
+    crcbuf = f.read(struct.calcsize(PAC_HEADER_FMT) - 4)
+    crc1val = crc16.crc16(crcbuf)
+    if crc1val != ph['wCRC1']:
+        if debug:
+            print(f'Computed CRC1 = {crc1val}, CRC1 in PAC = {ph["wCRC1"]}')
+        abort('CRC Check failed for CRC1\n')
 
     print('Checking CRC Part 2')
     f.seek(struct.calcsize(PAC_HEADER_FMT))
-    bufsize = 64 * 1024
+    buf_size = bufsize
     tempsize = (ph['dwHiSize'] * 0x100000000 + ph['dwLoSize']) - struct.calcsize(PAC_HEADER_FMT)
     tsize = tempsize
     crc2val = 0
     while tempsize > 0:
-        if tempsize < bufsize:
-            bufsize = tempsize
-        crcbuf = f.read(bufsize)
-        tempsize -= bufsize
+        if tempsize < buf_size:
+            buf_size = tempsize
+        crcbuf = f.read(buf_size)
+        tempsize -= buf_size
         crc2val = crc16.crc16(crcbuf, crc2val)
         print(f'\r{int(100 - ((100 * tempsize) / tsize))}%', end='')
     print(f'\r{fiveSpaces}')
@@ -208,7 +212,7 @@ def extractFile(f, fh, outdir):
     print(f'{fiveSpaces}{fh["fileName"]}', end='')
 
     f.seek(fh['hiDataOffset'] * 0x100000000 + fh['loDataOffset'])
-    size = 4096
+    size = bufsize
     tsize = tempsize
     with open(os.path.join(outdir, fh['fileName']), 'wb') as ofile:
         while tempsize > 0:

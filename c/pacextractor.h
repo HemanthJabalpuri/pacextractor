@@ -5,7 +5,7 @@
  * https://spdflashtool.com/source/spd-tool-source-code -> Source/BinPack
  */
 
-#include <stdint.h> // uint16_t, uint32_t
+#include <stdint.h> // uint16_t, uint32_t, uint64_t
 
 #ifndef _PAC_EXTRACTOR_H_
 
@@ -16,7 +16,7 @@
 #define SIZE_OF_PARTITION_HEADER 2580
 #define NAME_LENGTH 256
 
-#define BUFFSIZE (1 * 1024 * 1024)
+#define BUFFSIZE (1024 * 1024)
 
 typedef struct {
     uint16_t szVersion[22]; // packet struct version
