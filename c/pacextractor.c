@@ -1,5 +1,5 @@
 #include <stddef.h> // size_t
-#include <stdio.h> // fclose, fopen, fprintf, fread, fseek, ftell, fwrite, printf, remove, SEEK_END, SEEK_SET, FILE, stderr
+#include <stdio.h> // fclose, fopen, fprintf, fread, fseek, fseeko, ftell, ftello, fwrite, printf, remove, SEEK_END, SEEK_SET, FILE, stderr
 #include <stdlib.h> // exit, free, malloc, EXIT_FAILURE, EXIT_SUCCESS
 #include <string.h> // strcmp
 
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    fseek(filestream, 0, SEEK_END);
+    fseeko(filestream, 0, SEEK_END);
     uint64_t firmwareSize = ftello(filestream);
     if (firmwareSize < sizeof(PacHeader)) {
         fprintf(stderr, "file %s is not a PAC firmware\n", file);
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
             free(partHeaders[i]);
             continue;
         }
-        fseek(filestream, partHeaders[i]->hiDataOffset * 0x100000000UL + partHeaders[i]->loDataOffset, SEEK_SET);
+        fseeko(filestream, partHeaders[i]->hiDataOffset * 0x100000000UL + partHeaders[i]->loDataOffset, SEEK_SET);
         char* partFile = getString(partHeaders[i]->fileName);
         remove(partFile);
         FILE* newstream = fopen(partFile, "wb");
