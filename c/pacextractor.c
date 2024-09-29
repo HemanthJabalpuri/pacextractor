@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("\nExtracting...\n\n");
-    char filebuf[4096];
+    char filebuf[BUFFSIZE];
     for (i = 0; i < pacHeader.partitionCount; i++) {
         if (partHeaders[i]->loPartitionSize == 0 && partHeaders[i]->hiPartitionSize == 0) {
             free(partHeaders[i]);
@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
         uint64_t dataSizeLeft = partHeaders[i]->hiPartitionSize * 0x100000000UL + partHeaders[i]->loPartitionSize;
         uint64_t tsize = dataSizeLeft;
         while (dataSizeLeft > 0) {
-            uint32_t copyLength = (dataSizeLeft > 4096) ? 4096 : dataSizeLeft;
+            uint32_t copyLength = (dataSizeLeft > BUFFSIZE) ? BUFFSIZE : dataSizeLeft;
             rb = fread(filebuf, 1, copyLength, filestream);
             if (rb != copyLength) {
                 fprintf(stderr, "\nPartition image extraction error\n");
@@ -149,14 +149,13 @@ void checkCRC16(PacHeader* pacHeader, FILE* filestream) {
     }
 
     printf("Checking CRC Part 2\n");
-    int BUF_SIZE = 64 * 1024;
-    unsigned char buffer[BUF_SIZE];
+    unsigned char buffer[BUFFSIZE];
     fseek(filestream, SIZE_OF_PAC_HEADER, SEEK_SET);
     uint16_t crc2 = 0;
     uint64_t dataSizeLeft = (pacHeader->dwHiSize * 0x100000000UL + pacHeader->dwLoSize) - SIZE_OF_PAC_HEADER;
     uint64_t tsize = dataSizeLeft;
     while (dataSizeLeft > 0) {
-        uint32_t copyLength = (dataSizeLeft > BUF_SIZE) ? BUF_SIZE : dataSizeLeft;
+        uint32_t copyLength = (dataSizeLeft > BUFFSIZE) ? BUFFSIZE : dataSizeLeft;
         rb = fread(buffer, 1, copyLength, filestream);
         if (rb != copyLength) {
             fprintf(stderr, "\nPartition image extraction error\n");

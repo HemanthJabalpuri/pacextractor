@@ -16,6 +16,8 @@
 #define SIZE_OF_PARTITION_HEADER 2580
 #define NAME_LENGTH 256
 
+#define BUFFSIZE (1 * 1024 * 1024)
+
 typedef struct {
     uint16_t szVersion[22]; // packet struct version
     uint32_t dwHiSize; // the whole packet high size
